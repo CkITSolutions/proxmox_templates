@@ -8,6 +8,17 @@ use serde_json::Value;
 
 use crate::downloader::{Group, Template};
 
+pub fn collect_template_vmids(groups: &[Group]) -> Vec<i32> {
+    groups
+        .iter()
+        .flat_map(|group| group.templates.iter().map(|template| template.vmid))
+        .collect()
+}
+
+pub fn is_managed_template_vmid(vmid: i32, allowed_vmids: &[i32]) -> bool {
+    allowed_vmids.contains(&vmid)
+}
+
 const SNIPPET_DIR: &str = "/var/lib/vz/snippets";
 const VENDOR_SNIPPET: &str = "ckits-vendor-data.yaml";
 
@@ -138,18 +149,30 @@ pub fn select_templates(groups: &[Group], options: &RunOptions) -> Vec<Template>
         .collect()
 }
 
-pub fn prepare_templates(templates: Vec<Template>, options: &RunOptions) -> Vec<Template> {
+pub fn prepare_templates(
+    templates: Vec<Template>,
+    options: &RunOptions,
+    allowed_vmids: &[i32],
+) -> Vec<Template> {
     let mut prepared = Vec::new();
 
     for template in templates {
-        if !is_vmid_used(&template.vmid) {
+        if !is_managed_template_vmid(template.vmid, allowed_vmids) {
+            eprintln!(
+                "Skipping {}: VMID {} is not a managed template ID",
+                template.name, template.vmid
+            );
+            continue;
+        }
+
+        if !is_template_vmid_in_use(&template.vmid, allowed_vmids) {
             prepared.push(template);
             continue;
         }
 
         if options.assume_yes || confirm_replace(template.vmid, &template.name) {
-            if let Err(err) = destroy_vm(template.vmid) {
-                eprintln!("Failed to remove existing VM {}: {err}", template.vmid);
+            if let Err(err) = destroy_template_vm_sync(template.vmid, allowed_vmids) {
+                eprintln!("Failed to remove existing template {}: {err}", template.vmid);
                 continue;
             }
             prepared.push(template);
@@ -186,18 +209,52 @@ pub fn ensure_cloud_init_snippet() -> anyhow::Result<String> {
     Ok(format!("local:snippets/{VENDOR_SNIPPET}"))
 }
 
-pub fn destroy_vm(vmid: i32) -> anyhow::Result<()> {
-    if is_vmid_used(&vmid) {
+pub fn destroy_template_vm_sync(vmid: i32, allowed_vmids: &[i32]) -> anyhow::Result<()> {
+    if !is_managed_template_vmid(vmid, allowed_vmids) {
+        return Err(anyhow::anyhow!(
+            "Refusing to destroy VM {vmid}: not a managed template VMID"
+        ));
+    }
+
+    if is_template_vmid_in_use(&vmid, allowed_vmids) {
         let status = Command::new("qm")
             .args(["destroy", &vmid.to_string()])
             .status()?;
 
         if !status.success() {
-            return Err(anyhow::anyhow!("Failed to destroy VM {vmid}"));
+            return Err(anyhow::anyhow!("Failed to destroy template VM {vmid}"));
         }
     }
 
     Ok(())
+}
+
+pub async fn destroy_template_vm(vmid: i32) -> anyhow::Result<()> {
+    let output = Command::new("qm")
+        .args(["config", &vmid.to_string()])
+        .output();
+
+    if let Ok(output) = output {
+        if output.status.success() {
+            let status = Command::new("qm")
+                .args(["destroy", &vmid.to_string()])
+                .status()?;
+
+            if !status.success() {
+                return Err(anyhow::anyhow!("Failed to clean up partial template VM {vmid}"));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn is_template_vmid_in_use(vmid: &i32, allowed_vmids: &[i32]) -> bool {
+    if !is_managed_template_vmid(*vmid, allowed_vmids) {
+        return false;
+    }
+
+    is_vmid_used(vmid)
 }
 
 pub fn is_vmid_used(vmid: &i32) -> bool {

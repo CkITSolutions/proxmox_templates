@@ -6,7 +6,7 @@ use reqwest::Client;
 use tokio::process::Command;
 
 use crate::downloader::{download_template, Template};
-use crate::util::{template_vm_name};
+use crate::util::{destroy_template_vm, template_vm_name};
 
 const DEFAULT_MEMORY_MB: u32 = 2048;
 const DEFAULT_DISK_RESIZE: &str = "8G";
@@ -33,12 +33,42 @@ pub async fn install_template(
 
     pb.set_position(20);
 
+    if let Err(err) = install_template_inner(
+        storage_volume,
+        template,
+        image,
+        vendor_snippet,
+        &vm_name,
+        &vmid,
+        pb,
+    )
+    .await
+    {
+        let _ = destroy_template_vm(template.vmid).await;
+        return Err(err);
+    }
+
+    pb.set_position(100);
+    pb.finish_with_message(format!("Installed {}", template.name));
+
+    Ok(())
+}
+
+async fn install_template_inner(
+    storage_volume: &str,
+    template: &Template,
+    image: &Path,
+    vendor_snippet: &str,
+    vm_name: &str,
+    vmid: &str,
+    pb: &ProgressBar,
+) -> anyhow::Result<()> {
     run_qm(
         &[
             "create",
-            &vmid,
+            vmid,
             "--name",
-            &vm_name,
+            vm_name,
             "--memory",
             &DEFAULT_MEMORY_MB.to_string(),
             "--net0",
@@ -68,7 +98,7 @@ pub async fn install_template(
         &[
             "disk",
             "import",
-            &vmid,
+            vmid,
             image.to_str().unwrap(),
             storage_volume,
         ],
@@ -78,11 +108,11 @@ pub async fn install_template(
 
     pb.set_position(60);
 
-    let disk_ref = format!("{storage_volume}:vm-{vmid}-disk-0");
+    let disk_ref = get_imported_disk_ref(vmid, template).await?;
     run_qm(
         &[
             "set",
-            &vmid,
+            vmid,
             "--scsi0",
             &format!("{disk_ref},cache=writeback,discard=on,ssd=1"),
             "--boot",
@@ -103,17 +133,46 @@ pub async fn install_template(
     pb.set_position(80);
 
     run_qm(
-        &["resize", &vmid, "scsi0", &format!("+{DEFAULT_DISK_RESIZE}")],
+        &["resize", vmid, "scsi0", &format!("+{DEFAULT_DISK_RESIZE}")],
         template,
     )
     .await?;
 
-    run_qm(&["template", &vmid], template).await?;
-
-    pb.set_position(100);
-    pb.finish_with_message(format!("Installed {}", template.name));
+    run_qm(&["template", vmid], template).await?;
 
     Ok(())
+}
+
+async fn get_imported_disk_ref(vmid: &str, template: &Template) -> anyhow::Result<String> {
+    let output = Command::new("qm")
+        .args(["config", vmid])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .await?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow::anyhow!(
+            "Failed to read VM {vmid} config after disk import: {stderr}"
+        ));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+        let Some((key, value)) = line.split_once(": ") else {
+            continue;
+        };
+
+        if key.starts_with("unused") {
+            return Ok(value.trim().to_string());
+        }
+    }
+
+    Err(anyhow::anyhow!(
+        "No imported disk found for {} after disk import",
+        template.name
+    ))
 }
 
 pub async fn download_and_install_templates(

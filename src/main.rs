@@ -1,7 +1,7 @@
 use crate::installer::download_and_install_templates;
 use crate::util::{
-    ensure_cloud_init_snippet, get_storage_location, parse_args, prepare_templates,
-    select_templates, show_branding,
+    collect_template_vmids, ensure_cloud_init_snippet, get_storage_location, parse_args,
+    prepare_templates, select_templates, show_branding,
 };
 
 mod downloader;
@@ -28,7 +28,8 @@ async fn main() -> Result<(), ()> {
         return Ok(());
     }
 
-    let templates = prepare_templates(selected, &options);
+    let allowed_vmids = collect_template_vmids(&groups);
+    let templates = prepare_templates(selected, &options, &allowed_vmids);
     if templates.is_empty() {
         println!("No templates to install after resolving existing VMIDs.");
         return Ok(());

@@ -1,0 +1,135 @@
+[
+  {
+    "name": "Ubuntu",
+    "templates": [
+      {
+        "name": "Ubuntu 22.04",
+        "vmid": 1000,
+        "link": "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+      },
+      {
+        "name": "Ubuntu 24.04",
+        "vmid": 1001,
+        "link": "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+      },
+      {
+        "name": "Ubuntu 26.04",
+        "vmid": 1002,
+        "link": "https://cloud-images.ubuntu.com/releases/26.04/release/ubuntu-26.04-server-cloudimg-amd64.img"
+      }
+    ]
+  },
+  {
+    "name": "Debian",
+    "templates": [
+      {
+        "name": "Debian 11",
+        "vmid": 4000,
+        "link": "https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-generic-amd64.qcow2"
+      },
+      {
+        "name": "Debian 12",
+        "vmid": 4001,
+        "link": "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2"
+      },
+      {
+        "name": "Debian 13",
+        "vmid": 4002,
+        "link": "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-amd64.qcow2"
+      }
+    ]
+  },
+  {
+    "name": "Fedora",
+    "templates": [
+      {
+        "name": "Fedora 42",
+        "vmid": 6000,
+        "link": "https://download.fedoraproject.org/pub/fedora/linux/releases/42/Cloud/x86_64/images",
+        "artifact": "Fedora-Cloud-Base-Generic"
+      },
+      {
+        "name": "Fedora 43",
+        "vmid": 6001,
+        "link": "https://download.fedoraproject.org/pub/fedora/linux/releases/43/Cloud/x86_64/images",
+        "artifact": "Fedora-Cloud-Base-Generic"
+      },
+      {
+        "name": "Fedora 44",
+        "vmid": 6002,
+        "link": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Cloud/x86_64/images",
+        "artifact": "Fedora-Cloud-Base-Generic"
+      }
+    ]
+  },
+  {
+    "name": "CentOS",
+    "templates": [
+      {
+        "name": "CentOS Stream 9",
+        "vmid": 3000,
+        "link": "https://cloud.centos.org/centos/9-stream/x86_64/images/CentOS-Stream-GenericCloud-9-latest.x86_64.qcow2"
+      },
+      {
+        "name": "CentOS Stream 10",
+        "vmid": 3001,
+        "link": "https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-10-latest.x86_64.qcow2"
+      }
+    ]
+  },
+  {
+    "name": "Rocky Linux",
+    "templates": [
+      {
+        "name": "Rocky Linux 8",
+        "vmid": 5000,
+        "link": "https://download.rockylinux.org/pub/rocky/8/images/x86_64/Rocky-8-GenericCloud-Base.latest.x86_64.qcow2"
+      },
+      {
+        "name": "Rocky Linux 9",
+        "vmid": 5001,
+        "link": "https://download.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud-Base.latest.x86_64.qcow2"
+      },
+      {
+        "name": "Rocky Linux 10",
+        "vmid": 5002,
+        "link": "https://download.rockylinux.org/pub/rocky/10/images/x86_64/Rocky-10-GenericCloud-Base.latest.x86_64.qcow2"
+      }
+    ]
+  },
+  {
+    "name": "Alma Linux",
+    "templates": [
+      {
+        "name": "Alma Linux 8",
+        "vmid": 7000,
+        "link": "https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/AlmaLinux-8-GenericCloud-latest.x86_64.qcow2"
+      },
+      {
+        "name": "Alma Linux 9",
+        "vmid": 7001,
+        "link": "https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2"
+      },
+      {
+        "name": "Alma Linux 10",
+        "vmid": 7002,
+        "link": "https://repo.almalinux.org/almalinux/10/cloud/x86_64/images/AlmaLinux-10-GenericCloud-latest.x86_64.qcow2"
+      }
+    ]
+  },
+  {
+    "name": "openSUSE",
+    "templates": [
+      {
+        "name": "openSUSE Leap 15",
+        "vmid": 8000,
+        "link": "https://download.opensuse.org/distribution/leap/15.6/appliances/openSUSE-Leap-15.6-Minimal-VM.x86_64-Cloud.qcow2"
+      },
+      {
+        "name": "openSUSE Leap 16",
+        "vmid": 8001,
+        "link": "https://download.opensuse.org/distribution/leap/16.0/appliances/Leap-16.0-Minimal-VM.x86_64-Cloud.qcow2"
+      }
+    ]
+  }
+]

@@ -1,7 +1,37 @@
 #cloud-config
+# Allow SSH key and password login, including root.
+# Password is set via Proxmox cloud-init (CI password / cipassword).
+disable_root: false
+ssh_pwauth: true
 package_update: true
 packages:
   - qemu-guest-agent
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-ckits-cloudinit.conf
+    permissions: "0644"
+    content: |
+      PermitRootLogin yes
+      PasswordAuthentication yes
+      KbdInteractiveAuthentication yes
+      ChallengeResponseAuthentication yes
 runcmd:
-  - systemctl enable qemu-guest-agent
-  - systemctl start qemu-guest-agent
+  - systemctl enable --now qemu-guest-agent || true
+  - |
+    mkdir -p /etc/ssh/sshd_config.d
+    cat > /etc/ssh/sshd_config.d/99-ckits-cloudinit.conf <<'EOF'
+    PermitRootLogin yes
+    PasswordAuthentication yes
+    KbdInteractiveAuthentication yes
+    ChallengeResponseAuthentication yes
+    EOF
+    for f in /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf; do
+      [ -e "$f" ] || continue
+      case "$f" in
+        */99-ckits-cloudinit.conf) continue ;;
+      esac
+      sed -i -E 's/^[#[:space:]]*PermitRootLogin[[:space:]]+.*/PermitRootLogin yes/' "$f" || true
+      sed -i -E 's/^[#[:space:]]*PasswordAuthentication[[:space:]]+.*/PasswordAuthentication yes/' "$f" || true
+      sed -i -E 's/^[#[:space:]]*KbdInteractiveAuthentication[[:space:]]+.*/KbdInteractiveAuthentication yes/' "$f" || true
+      sed -i -E 's/^[#[:space:]]*ChallengeResponseAuthentication[[:space:]]+.*/ChallengeResponseAuthentication yes/' "$f" || true
+    done
+  - systemctl restart sshd 2>/dev/null || systemctl restart ssh 2>/dev/null || true

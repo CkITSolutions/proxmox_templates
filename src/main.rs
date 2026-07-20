@@ -53,20 +53,26 @@ async fn main() -> Result<(), ()> {
     let tmp_dir = tempfile::tempdir().unwrap();
     let tmp_path = tmp_dir.path();
 
+    let mut had_failure = false;
     tokio::select! {
         result = download_and_install_templates(&tmp_path, &storage_volume, templates, &vendor_snippet) => {
             if let Err(err) = result {
-                eprintln!("Installation failed: {err}");
-                return Err(());
+                eprintln!("Installation finished with errors: {err}");
+                had_failure = true;
             }
         },
         _ = tokio::signal::ctrl_c() => {
             println!("Received Ctrl-C, exiting");
+            had_failure = true;
         }
     }
 
     tmp_dir.close().unwrap();
-    println!("All selected templates were installed successfully.");
 
+    if had_failure {
+        return Err(());
+    }
+
+    println!("All selected templates were installed successfully.");
     Ok(())
 }

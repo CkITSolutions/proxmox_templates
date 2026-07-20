@@ -2,15 +2,15 @@ use std::path::Path;
 use std::process::Stdio;
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use reqwest::Client;
 use tokio::process::Command;
 
-use crate::downloader::{download_template, Template};
+use crate::downloader::{build_http_client, download_template, Template};
 use crate::util::{destroy_template_vm, template_vm_name};
 
 const DEFAULT_MEMORY_MB: u32 = 2048;
 const DEFAULT_DISK_RESIZE: &str = "8G";
 const DEFAULT_BRIDGE: &str = "vmbr0";
+const DEFAULT_CPU: &str = "host";
 
 pub async fn install_template(
     storage_volume: &str,
@@ -71,6 +71,8 @@ async fn install_template_inner(
             vm_name,
             "--memory",
             &DEFAULT_MEMORY_MB.to_string(),
+            "--cpu",
+            DEFAULT_CPU,
             "--net0",
             &format!("virtio,bridge={DEFAULT_BRIDGE}"),
             "--agent",
@@ -186,26 +188,58 @@ pub async fn download_and_install_templates(
         return Ok(());
     }
 
-    let client = Client::new();
+    let client = build_http_client()?;
     let mpb = MultiProgress::new();
+    let mut failures: Vec<(String, String)> = Vec::new();
+    let mut installed = 0usize;
 
     for template in templates {
         let pb = mpb.add(ProgressBar::new(100));
         pb.set_style(ProgressStyle::default_bar().template("{msg}").unwrap());
         pb.set_message(format!("Queued {}", template.name));
 
-        let file_name = download_template(tmp_dir, &client, &template, &pb).await?;
-        install_template(
-            storage_volume,
-            &template,
-            &file_name,
-            vendor_snippet,
-            &pb,
-        )
-        .await?;
+        let result = async {
+            let file_name = download_template(tmp_dir, &client, &template, &pb).await?;
+            install_template(
+                storage_volume,
+                &template,
+                &file_name,
+                vendor_snippet,
+                &pb,
+            )
+            .await?;
+            let _ = tokio::fs::remove_file(&file_name).await;
+            Ok::<(), anyhow::Error>(())
+        }
+        .await;
+
+        match result {
+            Ok(()) => installed += 1,
+            Err(err) => {
+                pb.finish_with_message(format!("Failed {}", template.name));
+                eprintln!("Failed {}: {err}", template.name);
+                failures.push((template.name.clone(), err.to_string()));
+            }
+        }
     }
 
-    Ok(())
+    if failures.is_empty() {
+        return Ok(());
+    }
+
+    eprintln!(
+        "Completed with {} installed, {} failed:",
+        installed,
+        failures.len()
+    );
+    for (name, err) in &failures {
+        eprintln!("  - {name}: {err}");
+    }
+
+    Err(anyhow::anyhow!(
+        "{} template(s) failed to install",
+        failures.len()
+    ))
 }
 
 async fn run_qm(args: &[&str], template: &Template) -> anyhow::Result<()> {

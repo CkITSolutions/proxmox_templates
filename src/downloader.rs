@@ -62,6 +62,18 @@ pub async fn fetch_templates() -> anyhow::Result<Vec<Group>> {
     Ok(groups)
 }
 
+pub fn build_http_client() -> anyhow::Result<Client> {
+    Client::builder()
+        .user_agent(concat!(
+            "ck-template-downloader/",
+            env!("CARGO_PKG_VERSION"),
+            " (+https://github.com/CkITSolutions/proxmox_templates)"
+        ))
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()
+        .context("Failed to build HTTP client")
+}
+
 pub async fn resolve_download_url(client: &Client, template: &Template) -> anyhow::Result<String> {
     let Some(artifact) = &template.artifact else {
         return Ok(template.link.clone());
@@ -86,6 +98,8 @@ pub async fn resolve_download_url(client: &Client, template: &Template) -> anyho
     let mut matches = matcher
         .captures_iter(&listing)
         .filter_map(|capture| capture.get(1).map(|value| value.as_str().to_string()))
+        // Prefer dated builds; cloud.centos.org often returns 403 for *-latest* symlinks.
+        .filter(|name| !name.contains("-latest."))
         .collect::<Vec<_>>();
 
     matches.sort();
